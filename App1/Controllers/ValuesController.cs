@@ -1,22 +1,21 @@
 ﻿namespace App1.Controllers
 {
-    using System.Collections.Generic;
-    using System.Net.Http;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
-    using Nacos.AspNetCore;
+    using System.Collections.Generic;
+    using System.Net.Http;
 
     [Route("api/[controller]")]
     [ApiController]
     public class ValuesController : ControllerBase
     {
         private readonly ILogger _logger;
-        private readonly INacosServerManager _serverManager;
+        private readonly Nacos.V2.INacosNamingService _svc;
 
-        public ValuesController(ILoggerFactory loggerFactory, INacosServerManager serverManager)
+        public ValuesController(ILoggerFactory loggerFactory, Nacos.V2.INacosNamingService svc)
         {
             _logger = loggerFactory.CreateLogger<ValuesController>();
-            _serverManager = serverManager;
+            _svc = svc;
         }
 
         // GET api/values
@@ -30,7 +29,11 @@
         [HttpGet("test")]
         public ActionResult<string> Test()
         {
-            var baseUrl = _serverManager.GetServerAsync("App2").GetAwaiter().GetResult();
+            var instance = _svc.SelectOneHealthyInstance("App2", "DEFAULT_GROUP").GetAwaiter().GetResult();
+            var host = $"{instance.Ip}:{instance.Port}";
+            var baseUrl = instance.Metadata.TryGetValue("secure", out _)
+                ? $"https://{host}"
+                : $"http://{host}";
 
             if (string.IsNullOrWhiteSpace(baseUrl))
             {
